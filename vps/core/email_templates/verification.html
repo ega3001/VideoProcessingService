@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>vps: Email verification</title>
+
+    {% include '_styles_.html' %}
+</head>
+
+<body>
+    <div class="container">
+        <a href="https://vps.com" target="_blank">
+            <img class="logo" src="https://downloads.vps.com/logo.png" alt="">
+        </a>
+        <div class="box">
+            <h3>
+                Email verification
+            </h3>
+            <p>
+                Hi, {{user_name}}!
+                <br>
+                Thanks for signing up with vps!
+                <br>
+                Please click the button below to verify your email address:
+            </p>
+            <form action="{{verify_url}}" target="_blank" method="post">
+                <button class="button" type="submit">
+                    Verify
+                </button>
+            </form>
+            <p class="caption">
+                Why do we need this? Just to ensure that it was really you who signed up, and not someone else.
+            </p>
+        </div>
+        <div class="footer">
+            © 2023 vps
+            <br>
+            support@vps.com
+        </div>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,99 @@
+version: "3.3"
+services:
+  api_vps:
+    build: ./vps
+    image: vps
+    env_file:
+      - .env
+    environment:
+      POSTGRES_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      POSTGRES_URL_ALEMBIC: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      CELERY_BROKER_URL: redis://${REDIS_HOST}:${REDIS_PORT}
+      BROKER_URL: redis://${REDIS_HOST}:${REDIS_PORT}
+      BACKEND_URL: redis://${REDIS_HOST}:${REDIS_PORT}
+    ports:
+      - "${API_PORT}:${API_PORT}"
+    volumes:
+      - ${FILE_ROOT}:/temp_folder/
+    command: bash -c "alembic upgrade head && gunicorn main:app --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:${API_PORT}"
+    depends_on:
+      - celery_vps
+
+  redis_vps:
+    image: redis:alpine
+    command: --port ${REDIS_PORT}
+
+  celery_vps:
+    restart: on-failure
+    image: vps
+    command: celery -A celery_worker.start_worker worker -l info -n vps
+    environment:
+      CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY}
+      BROKER_URL: redis://${REDIS_HOST}:${REDIS_PORT}
+      BACKEND_URL: redis://${REDIS_HOST}:${REDIS_PORT}
+      POSTGRES_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      POSTGRES_URL_ALEMBIC: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      CELERY_BROKER_URL: redis://${REDIS_HOST}:${REDIS_PORT}
+    env_file:
+      - .env
+    volumes:
+      - ${FILE_ROOT}:/temp_folder/
+    depends_on:
+      - redis_vps
+      - postgres_vps
+
+  postgres_vps:
+    image: postgres:15
+    ports:
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ${PG_DATA_ROOT}:/var/lib/postgresql/data
+    command: postgres -c tcp_keepalives_idle=600 -c tcp_keepalives_interval=30 -c tcp_keepalives_count=10 -p ${POSTGRES_PORT}
+
+  jetadmin_vps:
+    build:
+      context: ./jet-admin
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      DATABASE_ENGINE: postgresql
+      DATABASE_HOST: ${POSTGRES_HOST}
+      DATABASE_PORT: ${POSTGRES_PORT}
+      DATABASE_NAME: ${POSTGRES_DB}
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      PROJECT: ${JET_PROJECT}
+      TOKEN: ${JET_TOKEN}
+      ADDRESS: ${JET_ADDRESS}
+      PORT: ${JET_PORT}
+    ports:
+      - "${JET_PORT}:${JET_PORT}"
+    depends_on:
+      - postgres_vps
+
+  centrifugo_vps:
+    image: centrifugo/centrifugo:v5
+    restart: always
+    hostname: centrifugo
+    environment:
+      CENTRIFUGO_TOKEN_HMAC_SECRET_KEY: ${CENTRIFUGO_TOKEN_HMAC_SECRET_KEY}
+      CENTRIFUGO_ADMIN_PASSWORD: ${CENTRIFUGO_ADMIN_PASSWORD}
+      CENTRIFUGO_ADMIN_SECRET: ${CENTRIFUGO_ADMIN_SECRET}
+      CENTRIFUGO_API_KEY: ${CENTRIFUGO_API_KEY}
+      CENTRIFUGO_ALLOWED_ORIGINS: ${CENTRIFUGO_ALLOWED_ORIGINS}
+      CENTRIFUGO_ALLOW_SUBSCRIBE_FOR_CLIENT: ${CENTRIFUGO_ALLOW_SUBSCRIBE_FOR_CLIENT}
+      CENTRIFUGO_PORT: ${CENTRIFUGO_PORT}
+    volumes:
+      - ./config.json:/centrifugo/config.json
+    command: centrifugo --config=config.json --admin
+    ports:
+      - "${CENTRIFUGO_PORT}:${CENTRIFUGO_PORT}"
+    depends_on:
+      - api_vps

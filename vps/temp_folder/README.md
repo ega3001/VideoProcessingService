@@ -1,0 +1,1 @@
+Template folder for creating volume between OS and container for storing video and audio files.

@@ -1,0 +1,50 @@
+stages:
+  - build
+  - deploy
+
+build_dev:
+  stage: build
+  environment: development
+  tags:
+    - vps-backend-dev
+  script:
+    - cp $ENV_FILE .env
+    - docker-compose -p development_odb -f docker-compose.yaml build
+  only:
+    - dev
+
+deploy_to_dev:
+  stage: deploy
+  environment: development
+  tags:
+    - vps-backend-dev
+  script:
+    - cp $ENV_FILE .env
+    - docker-compose -p development_odb -f docker-compose.yaml up -d
+  only:
+    - dev
+
+
+build_prod:
+  stage: build
+  environment: production
+  tags:
+    - vps-backend-prod
+  script:
+    - cp $ENV_FILE .env
+    - docker-compose -p production_odb -f docker-compose.yaml build
+  only:
+    - master
+
+deploy_to_prod:
+  stage: deploy
+  environment: production
+  tags:
+    - vps-backend-prod
+  script:
+    - cp $ENV_FILE .env
+    - docker-compose -p production_odb -f docker-compose.yaml up -d
+  when: manual
+  only:
+    - master
+
